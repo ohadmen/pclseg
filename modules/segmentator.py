@@ -18,8 +18,8 @@ class Segmentator(nn.Module):
         self.sensor_img_means = arch["dataset"]["sensor"]["img_means"]
 
         self.sensor_img_stds = arch["dataset"]["sensor"]["img_stds"]
-
-        bboneModule = importlib.import_module('backbones.{}'.format(arch["backbone"]["name"]))
+        this_pckg_loc ='.'.join(__name__.split('.')[:-2])
+        bboneModule = importlib.import_module('.backbones.{}'.format(arch["backbone"]["name"]),this_pckg_loc)
         self.backbone = bboneModule.Backbone(params=arch["backbone"])
 
         # do a pass of the backbone to initialize the skip connections
@@ -33,7 +33,7 @@ class Segmentator(nn.Module):
             self.backbone.cuda()
         _, stub_skips = self.backbone(stub)
 
-        decoderModule = importlib.import_module('decoders.{}'.format(arch["decoder"]["name"]))
+        decoderModule = importlib.import_module('.decoders.{}'.format(arch["decoder"]["name"]),this_pckg_loc)
         self.decoder = decoderModule.Decoder(params=arch["decoder"],
                                              stub_skips=stub_skips,
                                              OS=arch["backbone"]["OS"],

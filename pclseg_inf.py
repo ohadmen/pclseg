@@ -5,9 +5,8 @@ from time import sleep
 import torch
 import yaml
 import numpy as np
-from common.laserscan import LaserScan
-from modules.segmentator import Segmentator
-
+from .common.laserscan import LaserScan
+from .modules.segmentator import Segmentator
 
 
 class PclSegInf:
@@ -22,25 +21,26 @@ class PclSegInf:
         proj = proj * proj_mask.astype(float)
         return proj, proj_mask
 
+    def classStr2learnLabel(self, class_list: str):
+        learn_list = [next(self.data['learning_map'][k] for k, v in self.data['labels'].items() if v == x) for x in
+                      class_list]
+        return learn_list
+
     @torch.no_grad()
     def __init__(self, modeldir):
         arch = yaml.safe_load(open(modeldir + "/arch_cfg.yaml", 'r'))
-        data = yaml.safe_load(open(modeldir + "/data_cfg.yaml", 'r'))
-        n_classes = len(data['learning_map_inv'])
+        self.data = yaml.safe_load(open(modeldir + "/data_cfg.yaml", 'r'))
+        n_classes = len(self.data['learning_map_inv'])
 
-        self.class_colormap = np.zeros((n_classes, 3))
-        for k, v in data['color_map'].items():
-            kp = data['learning_map'][k]
-            self.class_colormap[kp] = v
+        self.data['class_colormap'] = np.zeros((n_classes, 3))
+        for k, v in self.data['color_map'].items():
+            kp = self.data['learning_map'][k]
+            self.data['class_colormap'][kp] = v
 
         self.model = Segmentator(arch, n_classes, modeldir)
         self.model.cuda()
         self.model.eval()
         # use knn post processing?
-        self.post = None
-        if arch["post"]["KNN"]["use"]:
-            self.post = KNN(arch["post"]["KNN"]["params"],
-                            n_classes)
 
     @torch.no_grad()
     def __call__(self, ls: LaserScan):
@@ -85,7 +85,7 @@ if __name__ == '__main__':
         f = files[i]
         ls.open_scan(f)
         label = inf(ls)
-        label_color = inf.class_colormap[label] / 255
+        label_color = inf.data['class_colormap'][label] / 255
         xyzl = np.concatenate([ls.proj_xyz, label_color], axis=2)
         xyzl[ls.proj_mask] = np.nan
 
